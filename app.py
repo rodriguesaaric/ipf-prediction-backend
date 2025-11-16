@@ -63,7 +63,7 @@ def download_model():
 
 
 # ======================================
-# CUSTOM LOSS (needed to load model)
+# CUSTOM LOSS
 # ======================================
 
 def laplace_log_likelihood(y_true, y_pred):
@@ -78,7 +78,7 @@ def laplace_log_likelihood(y_true, y_pred):
 
 
 # ======================================
-# BUILD MODEL ARCHITECTURE
+# BUILD MODEL
 # ======================================
 
 def build_model():
@@ -116,22 +116,24 @@ def build_model():
 
 
 # ======================================
-# LOAD MODEL ONCE
+# LAZY LOAD MODEL
 # ======================================
 
 MODEL = None
 
 def load_model():
+    """Load the model only when needed (lazy load to avoid Render timeout)."""
     global MODEL
     if MODEL is not None:
         return MODEL
 
+    print("⚠ Lazy-loading model...")
     weights_file = download_model()
+
     MODEL = build_model()
     MODEL.load_weights(weights_file)
 
     print("✔ Model fully loaded and ready.")
-
     return MODEL
 
 
@@ -143,11 +145,11 @@ def preprocess_dicom(dicom_bytes: bytes):
     dcm = pydicom.dcmread(io.BytesIO(dicom_bytes))
     img = dcm.pixel_array.astype(np.int16)
 
-    # Apply HU conversion
+    # HU conversion
     if "RescaleSlope" in dcm and "RescaleIntercept" in dcm:
         img = img * dcm.RescaleSlope + dcm.RescaleIntercept
 
-    # Windowing (matching your training)
+    # Windowing (as used in training)
     MIN_HU, MAX_HU = -1000, -400
     img = np.clip(img, MIN_HU, MAX_HU)
     img = (img - MIN_HU) / (MAX_HU - MIN_HU)
@@ -157,7 +159,6 @@ def preprocess_dicom(dicom_bytes: bytes):
     img = cv2.resize(img, (IMG_SIZE, IMG_SIZE))
     img = img.astype(np.float32) / 255.0
 
-    # Expand dims -> (1, 256, 256, 1)
     return img.reshape(1, IMG_SIZE, IMG_SIZE, 1)
 
 
@@ -176,7 +177,7 @@ def prepare_tabular_data(age, sex, smoking, weeks, fvc):
 
     df = pd.get_dummies(df, columns=["Sex", "SmokingStatus"])
 
-    # Ensure all columns exist
+    # Ensure required cols exist
     for col in TABULAR_FEATURES:
         if col not in df:
             df[col] = 0
@@ -189,14 +190,6 @@ def prepare_tabular_data(age, sex, smoking, weeks, fvc):
 # ======================================
 
 app = FastAPI(title="IPF FVC Prediction API")
-
-@app.on_event("startup")
-def on_startup():
-    try:
-        load_model()
-    except Exception as e:
-        print("❌ Startup failed:", e)
-
 
 @app.get("/")
 def root():
@@ -212,8 +205,11 @@ async def predict(
     sex: str = Form(...),
     smokingStatus: str = Form(...)
 ):
+
+    # Lazy-load the model here
     if MODEL is None:
-        raise HTTPException(500, "Model not loaded.")
+        print("⚠ Model not loaded yet. Loading now...")
+        load_model()
 
     # Process CT
     try:
@@ -221,7 +217,7 @@ async def predict(
     except Exception as e:
         raise HTTPException(400, f"DICOM error: {e}")
 
-    # Process tabular
+    # Prepare tabular
     try:
         tab_input = prepare_tabular_data(age, sex, smokingStatus, weeks, fvc)
     except Exception as e:
