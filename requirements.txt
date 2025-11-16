@@ -6,5 +6,5 @@ numpy==1.26.0
 pandas==2.2.2
 pydicom==3.0.1
 opencv-python-headless==4.7.0.72
-requests==2.34.0
+requests==2.32.3
 python-multipart==0.0.9
