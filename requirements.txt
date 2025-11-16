@@ -2,7 +2,7 @@ fastapi==0.95.2
 uvicorn[standard]==0.22.0
 gunicorn==20.1.0
 tensorflow==2.12.0
-numpy==1.26.0
+numpy==1.23.5
 pandas==2.2.2
 pydicom==3.0.1
 opencv-python-headless==4.7.0.72
