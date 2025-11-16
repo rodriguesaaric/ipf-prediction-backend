@@ -4,7 +4,7 @@ gunicorn==20.1.0
 tensorflow==2.12.0
 numpy==1.26.0
 pandas==2.2.2
-pydicom==2.5.3
+pydicom==3.0.1
 opencv-python-headless==4.7.0.72
 requests==2.34.0
 python-multipart==0.0.9
